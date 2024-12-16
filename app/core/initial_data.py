@@ -1,41 +1,44 @@
-import asyncio
-
 from sqlmodel import Session
 
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.crud.user import create_user
-from app.models.user import UserCreate
+from app.models.user import UserCreate, UserRole
 
 logger = get_logger(__name__)
 
 FIRST_SUPERUSER = {
     "username": "admin",
     "password": "admin123",
-    "role": "admin",
+    "role": UserRole.ADMIN,
     "is_superuser": True,
 }
 
 INITIAL_USERS = [
     {
-        "username": "films_user",
-        "password": "films123",
-        "role": "films",
+        "username": "films",
+        "password": "test123",
+        "role": UserRole.FILMS,
     },
     {
-        "username": "people_user",
-        "password": "people123",
-        "role": "people",
+        "username": "people",
+        "password": "test123",
+        "role": UserRole.PEOPLE,
     },
     {
-        "username": "locations_user",
-        "password": "locations123",
-        "role": "locations",
+        "username": "locations",
+        "password": "test123",
+        "role": UserRole.LOCATIONS,
     },
     {
-        "username": "species_user",
-        "password": "species123",
-        "role": "species",
+        "username": "species",
+        "password": "test123",
+        "role": UserRole.SPECIES,
+    },
+    {
+        "username": "vehicles",
+        "password": "test123",
+        "role": UserRole.VEHICLES,
     },
 ]
 
@@ -44,18 +47,22 @@ def init_db(db: Session) -> None:
     """
     Inicializa la base de datos con datos por defecto
     """
-    # Crear superusuario
-    if superuser := create_superuser(db):
-        logger.info(f"Superuser created: {superuser.username}")
-    else:
-        logger.info("Superuser already exists")
-
-    # Crear usuarios iniciales
-    for user_data in INITIAL_USERS:
-        if user := create_initial_user(db, user_data):
-            logger.info(f"User created: {user.username}")
+    try:
+        # Crear superusuario
+        if superuser := create_superuser(db):
+            logger.info(f"Superuser created: {superuser.username}")
         else:
-            logger.info(f"User already exists: {user_data['username']}")
+            logger.info("Superuser already exists")
+
+        # Crear usuarios iniciales
+        for user_data in INITIAL_USERS:
+            if user := create_initial_user(db, user_data):
+                logger.info(f"User created: {user.username}")
+            else:
+                logger.info(f"User already exists: {user_data['username']}")
+    except Exception as e:
+        logger.error(f"Error initializing database: {str(e)}")
+        raise
 
 
 def create_superuser(db: Session):

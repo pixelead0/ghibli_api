@@ -1,5 +1,5 @@
 import uuid
-from typing import Generator, Optional
+from typing import Optional
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -14,19 +14,21 @@ from app.models.user import User
 
 logger = get_logger(__name__)
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/login")
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl=f"{settings.API_V1_STR}/login", auto_error=False
+)
 
 
-def get_current_user(
-    db: Session = Depends(get_session), token: str = Depends(oauth2_scheme)
-) -> User:
-    logger.debug("Verifying authentication token")
-
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+def get_current_user_optional(
+    db: Session = Depends(get_session),
+    token: Optional[str] = Depends(oauth2_scheme),
+) -> Optional[User]:
+    """
+    Verifica el token de autenticación y retorna el usuario actual si existe
+    Si no hay token o es inválido, retorna None en lugar de lanzar una excepción
+    """
+    if not token:
+        return None
 
     try:
         payload = jwt.decode(
@@ -34,56 +36,56 @@ def get_current_user(
         )
         user_id: str = payload.get("sub")
         if user_id is None:
-            logger.error("Token payload does not contain user ID")
-            raise credentials_exception
+            return None
 
-        logger.debug(f"Token contains user ID: {user_id}")
+        user = crud.user.get_user(db, user_id=uuid.UUID(user_id))
+        if user is None:
+            return None
 
-    except JWTError as e:
-        logger.error(f"Error decoding JWT token: {str(e)}")
-        raise credentials_exception
-
-    user = crud.user.get_user(db, user_id=uuid.UUID(user_id))
-
-    if user is None:
-        logger.error(f"User not found for ID: {user_id}")
-        raise credentials_exception
-
-    logger.debug(f"Successfully authenticated user: {user.username}")
-    return user
+        return user
+    except JWTError:
+        return None
 
 
-def verify_admin(current_user: User = Depends(get_current_user)) -> User:
+def get_current_user(
+    current_user: Optional[User] = Depends(get_current_user_optional),
+) -> User:
     """
-    Verifica si el usuario actual es un administrador
+    Verifica el token de autenticación y retorna el usuario actual
+    Lanza una excepción si no hay token o es inválido
     """
-    logger.debug(f"Verifying admin privileges for user: {current_user.username}")
-
-    if not current_user.is_superuser:
-        logger.warning(
-            f"Unauthorized admin access attempt by user: {current_user.username}"
-        )
+    if not current_user:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="The user doesn't have enough privileges",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
         )
-
-    logger.debug(f"Admin privileges verified for user: {current_user.username}")
     return current_user
 
 
-def verify_active_user(current_user: User = Depends(get_current_user)) -> User:
+def get_current_active_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
     """
-    Verifica si el usuario actual está activo
+    Verifica que el usuario actual esté activo
     """
-    logger.debug(f"Verifying active status for user: {current_user.username}")
-
     if not current_user.is_active:
-        logger.warning(f"Inactive user attempt to access: {current_user.username}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Inactive user",
         )
+    return current_user
 
-    logger.debug(f"Active status verified for user: {current_user.username}")
+
+def get_current_superuser(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """
+    Verifica que el usuario actual sea un superusuario
+    """
+    if not current_user.is_superuser:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The user doesn't have enough privileges",
+        )
     return current_user

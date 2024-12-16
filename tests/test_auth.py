@@ -1,9 +1,3 @@
-import os
-import sys
-import uuid
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "app")))
-
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
@@ -11,7 +5,7 @@ from sqlmodel.pool import StaticPool
 
 from app.db.session import get_session
 from app.main import app
-from app.models.user import User
+from app.models.user import UserRole
 
 
 @pytest.fixture
@@ -41,13 +35,26 @@ def test_create_user(client):
         json={
             "username": "testuser",
             "password": "testpass123",
-            "role": "user",
+            "role": UserRole.FILMS,
         },
     )
     assert response.status_code == 200
     data = response.json()
     assert data["username"] == "testuser"
+    assert data["role"] == UserRole.FILMS
     assert "password" not in data
+
+
+def test_create_user_invalid_role(client):
+    response = client.post(
+        "/api/v1/users",
+        json={
+            "username": "testuser",
+            "password": "testpass123",
+            "role": "invalid_role",
+        },
+    )
+    assert response.status_code == 422  # Validation error
 
 
 def test_login(client):
@@ -57,7 +64,7 @@ def test_login(client):
         json={
             "username": "testuser",
             "password": "testpass123",
-            "role": "user",
+            "role": UserRole.FILMS,
         },
     )
 
@@ -78,7 +85,7 @@ def test_login_wrong_password(client):
         json={
             "username": "testuser",
             "password": "testpass123",
-            "role": "user",
+            "role": UserRole.FILMS,
         },
     )
 
@@ -97,7 +104,7 @@ def test_get_users(client):
         json={
             "username": "testuser",
             "password": "testpass123",
-            "role": "user",
+            "role": UserRole.FILMS,
         },
     )
 

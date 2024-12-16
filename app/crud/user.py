@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from typing import Optional
 
 from sqlmodel import Session, select
@@ -35,7 +36,7 @@ def create_user(db: Session, user: UserCreate) -> User:
             hashed_password=get_password_hash(user.password),
             role=user.role,
             is_active=True,
-            is_superuser=False,
+            is_superuser=user.is_superuser,
         )
         db.add(db_user)
         db.commit()
@@ -57,6 +58,8 @@ def update_user(db: Session, db_user: User, user_update: UserUpdate) -> User:
             logger.debug("Updating user password")
             update_data["hashed_password"] = get_password_hash(update_data["password"])
             del update_data["password"]
+
+        update_data["updated_at"] = datetime.utcnow()
 
         for field, value in update_data.items():
             logger.debug(f"Updating field {field}")
