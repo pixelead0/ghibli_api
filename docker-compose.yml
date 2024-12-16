@@ -1,0 +1,58 @@
+services:
+  ghibli_db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+    networks:
+      - backend
+
+
+  ghibli_api:
+    build:
+      context: ./
+      dockerfile: containers/api/Dockerfile
+    ports:
+      - "8881:8881"
+    volumes:
+      - ./:/app
+    security_opt:
+      - no-new-privileges:true
+    restart: on-failure
+    depends_on:
+      ghibli_db:
+        condition: service_healthy
+    networks:
+      - backend
+
+  pgadmin:
+    depends_on:
+      - ghibli_db
+    build:
+      dockerfile: Dockerfile
+      context: containers/pgadmin
+    env_file:
+      - containers/pgadmin/pgadmin.env
+    ports:
+      - 8484:80
+    networks:
+      - backend
+volumes:
+  postgres_data:
+
+networks:
+  backend:
+    driver: bridge
