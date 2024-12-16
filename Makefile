@@ -87,6 +87,6 @@ test:
 		$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) run --rm $(CONTAINER_NAME) pytest -s -v app tests; \
 	else \
 		echo "Ejecutando los tests en $(path) ..."; \
-		$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) run --rm $(CONTAINER_NAME) pytest -s -v app/$(path); \
+		$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) run --rm $(CONTAINER_NAME) pytest -s -v $(path); \
 	fi
 
