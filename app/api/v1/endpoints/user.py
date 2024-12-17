@@ -16,7 +16,7 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 
-@router.post("/users", response_model=UserRead)
+@router.post("/", response_model=UserRead)
 def create_user(
     *,
     db: Session = Depends(deps.get_session),
@@ -63,7 +63,7 @@ def create_user(
     return user
 
 
-@router.get("/users", response_model=List[UserRead])
+@router.get("/", response_model=List[UserRead])
 def read_users(
     *,
     db: Session = Depends(deps.get_session),
@@ -82,13 +82,13 @@ def read_users(
     return users
 
 
-@router.get("/users/me", response_model=UserRead)
+@router.get("/me", response_model=UserRead)
 def read_user_me(current_user: User = Depends(deps.get_current_active_user)):
     """Get current user."""
     return current_user
 
 
-@router.get("/users/{user_id}", response_model=UserRead)
+@router.get("/{user_id}", response_model=UserRead)
 def read_user(
     user_id: uuid.UUID,
     db: Session = Depends(deps.get_session),
@@ -110,7 +110,7 @@ def read_user(
     return user
 
 
-@router.put("/users/{user_id}", response_model=UserRead)
+@router.put("/{user_id}", response_model=UserRead)
 def update_user(
     *,
     db: Session = Depends(deps.get_session),
@@ -133,7 +133,7 @@ def update_user(
     return user
 
 
-@router.delete("/users/{user_id}", response_model=UserRead)
+@router.delete("/{user_id}", response_model=UserRead)
 def delete_user(
     *,
     db: Session = Depends(deps.get_session),

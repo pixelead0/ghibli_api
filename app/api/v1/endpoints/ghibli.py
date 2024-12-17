@@ -9,7 +9,7 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 
-@router.get("/ghibli")
+@router.get("/")
 def get_ghibli_data(current_user: User = Depends(deps.get_current_user)):
     """
     Obtiene datos de Studio Ghibli API según el rol del usuario

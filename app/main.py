@@ -23,11 +23,9 @@ async def lifespan(app: FastAPI):
     """
     Contexto de vida de la aplicación
     """
-    # Startup
     logger.info("Initializing application...")
     setup_logging()
 
-    # Initialize database
     init_db()
 
     # Create initial data
@@ -37,10 +35,7 @@ async def lifespan(app: FastAPI):
             init_data(session)
 
     logger.info("Application started successfully")
-
     yield
-
-    # Shutdown
     logger.info("Application shutdown")
 
 
@@ -50,7 +45,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -71,10 +65,11 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-# Rutas
-app.include_router(auth.router, prefix=settings.API_V1_STR)
-app.include_router(user.router, prefix=settings.API_V1_STR)
-app.include_router(ghibli.router, prefix=settings.API_V1_STR)
+app.include_router(auth.router, prefix=f"{settings.API_V1_STR}", tags=["auth"])
+app.include_router(user.router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
+app.include_router(
+    ghibli.router, prefix=f"{settings.API_V1_STR}/ghibli", tags=["ghibli"]
+)
 
 
 @app.get("/health")
