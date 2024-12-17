@@ -1,0 +1,78 @@
+services:
+  ghibli_db_dev:
+    image: postgres:15-alpine
+    container_name: ghibli_db_dev
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+    ports:
+      - "5433:${POSTGRES_PORT}"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    networks:
+      - backend_dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ghibli_api_dev:
+    container_name: ghibli_api_dev
+    build:
+      context: .
+      dockerfile: containers/api/Dockerfile.dev
+    ports:
+      - "8881:8881"
+    volumes:
+      - ./:/app
+    env_file:      
+      - .env.dev    
+    environment:
+      - ENVIRONMENT=development
+      - CREATE_INITIAL_DATA=true
+    depends_on:
+      ghibli_db_dev:
+        condition: service_healthy
+    networks:
+      - backend_dev
+
+  ghibli_redis_dev:
+    image: redis:alpine
+    container_name: ghibli_redis_dev
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data_dev:/data
+    networks:
+      - backend_dev
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  pgadmin_dev:
+    container_name: pgadmin_dev
+    depends_on:
+      - ghibli_db_dev
+    build:
+      context: containers/pgadmin
+      dockerfile: Dockerfile
+    env_file:
+      - containers/pgadmin/pgadmin.env
+    ports:
+      - 8484:80
+    networks:
+      - backend_dev
+
+volumes:
+  postgres_data_dev:
+  redis_data_dev:
+
+networks:
+  backend_dev:
+    driver: bridge
+    name: ghibli_network_dev

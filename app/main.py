@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 
-from app.api.v1.endpoints import auth, ghibli
+from app.api.v1.endpoints import auth, ghibli, user
 from app.core.config import settings
 from app.core.initial_data import init_db as init_data
 from app.core.logging import (
@@ -23,24 +23,22 @@ async def lifespan(app: FastAPI):
     """
     Contexto de vida de la aplicación
     """
-    # Startup
-    logger.info("Initializing application...")
+    logger.info(f"Initializing application in {settings.ENVIRONMENT} environment...")
     setup_logging()
 
-    # Initialize database
+    # Inicializar la base de datos
     init_db()
 
-    # Create initial data
+    # Crear datos iniciales solo en desarrollo
     if settings.ENVIRONMENT == "development" and settings.CREATE_INITIAL_DATA:
         logger.info("Creating initial data...")
         with Session(engine) as session:
             init_data(session)
+    else:
+        logger.info("Skipping initial data creation in production environment")
 
     logger.info("Application started successfully")
-
     yield
-
-    # Shutdown
     logger.info("Application shutdown")
 
 
@@ -50,7 +48,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -71,9 +68,11 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-# Rutas
-app.include_router(auth.router, prefix=settings.API_V1_STR)
-app.include_router(ghibli.router, prefix=settings.API_V1_STR)
+app.include_router(auth.router, prefix=f"{settings.API_V1_STR}", tags=["auth"])
+app.include_router(user.router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
+app.include_router(
+    ghibli.router, prefix=f"{settings.API_V1_STR}/ghibli", tags=["ghibli"]
+)
 
 
 @app.get("/health")
@@ -82,4 +81,4 @@ async def health_check():
     Endpoint de health check
     """
     logger.info("Health check requested")
-    return {"status": "healthy"}
+    return {"status": "healthy", "environment": settings.ENVIRONMENT}
