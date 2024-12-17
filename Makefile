@@ -1,15 +1,22 @@
-DOCKER_COMPOSE = docker-compose
+# El ambiente por defecto es 'dev' si no se especifica
+# Uso: make comando [ENV=dev|prd]
 ENV ?= dev
-CONTAINER_NAME = ghibli_api
+
+DOCKER_COMPOSE = docker-compose
+CONTAINER_NAME = ghibli_api_dev
 
 DOCKER_COMPOSE_FILE = docker-compose.$(ENV).yml
+ENV_FILE = .env.$(ENV)
 
-.PHONY: all build up down clean restart logs test validate-env
+.PHONY: all build up down clean restart logs test validate-env copy-env
 
 all: help
 
 ##   help                  | Show this text
 help: Makefile
+	@echo "Usage: make [target] [ENV=dev|prd]"
+	@echo "Default environment: dev"
+	@echo ""
 	@sed -n 's/^##//p' $< | cat
 
 validate-env:
@@ -17,23 +24,31 @@ validate-env:
 		echo "Error: ENV must be either 'dev' or 'prd'"; \
 		exit 1; \
 	fi
+	@if [ ! -f "$(ENV_FILE)" ]; then \
+		echo "Error: $(ENV_FILE) does not exist"; \
+		exit 1; \
+	fi
+
+copy-env: validate-env
+	@cp $(ENV_FILE) .env
 
 ##---------------------------------------------------
 ##   Application Commands
 ##---------------------------------------------------
 ##   build ENV=[dev|prd]   | Build the application
-build: validate-env
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) up --build --force-recreate --remove-orphans
+build: copy-env
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) build
 
 ##   up ENV=[dev|prd]      | Build and start the application
-up: validate-env
+up: copy-env
 	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) up -d
 
 ##   down ENV=[dev|prd]    | Stop the application
 down: validate-env
 	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) down
+	@rm -f .env
 
-##   ps ENV=[dev|prd|all]   | Lists containers (dev, prd, or all)
+##   ps ENV=[dev|prd|all]  | Lists containers (dev, prd, or all)
 ps:
 	@if [ "$(ENV)" = "all" ]; then \
 		echo "\nDevelopment environment containers:"; \
@@ -107,8 +122,7 @@ revision: validate-env
 		echo "Especifique un mensaje para la migracion."; \
 		return 1; \
 	else \
-		$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) run --rm $(CONTAINER_NAME) alembic db stamp head; \
-		$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) run --rm $(CONTAINER_NAME) alembic revision --autogenerate -m $(msg); \
+		$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) run --rm $(CONTAINER_NAME) alembic revision --autogenerate -m "$(msg)"; \
 	fi
 
 ##---------------------------------------------------

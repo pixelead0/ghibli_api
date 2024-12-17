@@ -2,25 +2,39 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        build-essential \
-        libpq-dev \
-        libffi-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Instalar dependencias del sistema
+# RUN apt-get update \
+#     && apt-get install -y --no-install-recommends \
+#         build-essential \
+#         libpq-dev \
+#         libffi-dev \
+#     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+RUN apt-get update \
+&& apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    libffi-dev \
+    iputils-ping \
+    postgresql-client \
+&& rm -rf /var/lib/apt/lists/*
+
+
+# Instalar dependencias de Python
+COPY requirements*.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY requirements_dev.txt .
+# Instalar dependencias de desarrollo si TEST_MODE está habilitado
 ARG TEST_MODE=0
 RUN if [ "$TEST_MODE" = "1" ]; then \
         pip install --no-cache-dir -r requirements_dev.txt; \
     fi
 
-COPY ./app /app
-COPY ./tests /tests
+# Copiar el código de la aplicación
+COPY ./app /app/app
+COPY ./tests /app/tests
 
 ENV PYTHONPATH=/app
 
+# Comando por defecto
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8881", "--reload"]

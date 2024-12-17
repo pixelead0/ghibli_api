@@ -1,14 +1,16 @@
 services:
-  ghibli_db:
+  ghibli_db_prd:
     image: postgres:15-alpine
+    container_name: ghibli_db_prd
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_PORT=${POSTGRES_PORT}
     security_opt:
       - no-new-privileges:true
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_prd:/var/lib/postgresql/data
     restart: always
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
@@ -16,12 +18,12 @@ services:
       timeout: 5s
       retries: 10
     networks:
-      - backend
+      - backend_prd
 
-  ghibli_api:
+  ghibli_api_prd:
     build:
       context: ./
-      dockerfile: containers/api/Dockerfile.prod
+      dockerfile: containers/api/Dockerfile.prd
     deploy:
       mode: replicated
       replicas: 3
@@ -31,8 +33,10 @@ services:
       - no-new-privileges:true
     restart: always
     depends_on:
-      ghibli_db:
+      ghibli_db_prd:
         condition: service_healthy
+    env_file:      
+      - .env.prd
     environment:
       - ENVIRONMENT=production
       - CREATE_INITIAL_DATA=false
@@ -40,13 +44,14 @@ services:
       - MAX_WORKERS=2
       - WEB_CONCURRENCY=2
     networks:
-      - backend
+      - backend_prd
 
-  ghibli_redis:
+  ghibli_redis_prd:
     image: redis:alpine
+    container_name: ghibli_redis_prd
     command: redis-server --appendonly yes
     volumes:
-      - redis_data:/data
+      - redis_data_prd:/data
     deploy:
       resources:
         limits:
@@ -59,21 +64,22 @@ services:
       - no-new-privileges:true
     restart: always
     networks:
-      - backend
+      - backend_prd
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
 
-  nginx:
+  nginx_prd:
     build:
       context: ./containers/nginx
       dockerfile: Dockerfile
+    container_name: nginx_prd
     ports:
-      - "80:80"
+      - "8080:80" 
     depends_on:
-      - ghibli_api
+      - ghibli_api_prd
     deploy:
       resources:
         limits:
@@ -86,13 +92,13 @@ services:
       - no-new-privileges:true
     restart: always
     networks:
-      - backend
+      - backend_prd
 
 volumes:
-  postgres_data:
-  redis_data:
+  postgres_data_prd:
+  redis_data_prd:
 
 networks:
-  backend:
+  backend_prd:
     driver: bridge
-    name: ghibli_network
+    name: ghibli_network_prd
