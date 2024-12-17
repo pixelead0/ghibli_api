@@ -20,10 +20,24 @@ class GhibliService:
     }
 
     @classmethod
+    def _fetch_from_api(cls, endpoint: str) -> dict:
+        """
+        Obtiene datos directamente de la API
+        """
+        try:
+            response = requests.get(f"{cls.BASE_URL}{endpoint}")
+            response.raise_for_status()
+            return response.json()
+        except (requests.RequestException, Exception) as e:
+            logger.error(f"Error accessing Ghibli API at {endpoint}: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail=f"Error accessing Ghibli API: {str(e)}"
+            ) from e
+
+    @classmethod
     def get_data_by_role(cls, role: UserRole):
         """
-        Obtiene datos de la API de Studio Ghibli según el rol del usuario,
-        utilizando caché cuando esté disponible
+        Obtiene datos de Studio Ghibli API según el rol del usuario
         """
         if role == UserRole.ADMIN:
             return cls.get_all_data()
@@ -34,49 +48,54 @@ class GhibliService:
                 status_code=403, detail="Role not authorized to access Ghibli API"
             )
 
-        # Intentar obtener datos del caché
-        cache_key = f"ghibli:{endpoint}"
-        cached_data = cache.get(cache_key)
-        if cached_data:
-            logger.info(f"Returning cached data for {endpoint}")
-            return cached_data
+        # Intentar obtener datos del caché solo si está disponible
+        if cache.is_available():
+            cache_key = f"ghibli:{endpoint}"
+            cached_data = cache.get(cache_key)
+            if cached_data:
+                logger.info(f"Returning cached data for {endpoint}")
+                return cached_data
 
-        try:
-            response = requests.get(f"{cls.BASE_URL}{endpoint}")
-            response.raise_for_status()
-            data = response.json()
+        # Si no hay caché o no hay datos en caché, obtener de la API
+        data = cls._fetch_from_api(endpoint)
 
-            # Guardar en caché
+        # Intentar guardar en caché si está disponible
+        if cache.is_available():
+            cache_key = f"ghibli:{endpoint}"
             cache.set(cache_key, data)
             logger.info(f"Data fetched and cached for {endpoint}")
-            return data
-        except requests.RequestException as e:
-            logger.error(f"Error accessing Ghibli API: {str(e)}")
-            raise HTTPException(status_code=500, detail="Error accessing Ghibli API")
+        else:
+            logger.warning("Cache not available, serving data directly from API")
+
+        return data
 
     @classmethod
     def get_all_data(cls):
         """
         Obtiene todos los datos de la API (solo para admin)
         """
-        cache_key = "ghibli:all_data"
-        cached_data = cache.get(cache_key)
-        if cached_data:
-            logger.info("Returning cached data for all endpoints")
-            return cached_data
+        if cache.is_available():
+            cache_key = "ghibli:all_data"
+            cached_data = cache.get(cache_key)
+            if cached_data:
+                logger.info("Returning cached all data")
+                return cached_data
 
         all_data = {}
-        for endpoint in cls.ROLE_ENDPOINTS.values():
-            try:
-                response = requests.get(f"{cls.BASE_URL}{endpoint}")
-                response.raise_for_status()
-                all_data[endpoint.strip("/")] = response.json()
-            except requests.RequestException as e:
-                logger.error(f"Error accessing {endpoint}: {str(e)}")
+        try:
+            for endpoint in cls.ROLE_ENDPOINTS.values():
+                data = cls._fetch_from_api(endpoint)
+                all_data[endpoint.strip("/")] = data
 
-        # Guardar en caché
-        if all_data:
-            cache.set(cache_key, all_data)
-            logger.info("All data fetched and cached")
+            # Intentar guardar en caché si está disponible
+            if cache.is_available() and all_data:
+                cache_key = "ghibli:all_data"
+                cache.set(cache_key, all_data)
+                logger.info("All data fetched and cached")
 
-        return all_data
+            return all_data
+        except HTTPException as e:
+            logger.error(f"Error fetching all data: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail="Error fetching data from Ghibli API"
+            ) from e
