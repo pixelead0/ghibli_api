@@ -28,7 +28,7 @@ class Settings(BaseSettings):
         return f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
     # Logging Configuration
-    LOG_LEVEL: str = Field(default="INFO")
+    LOG_LEVEL: str = "DEBUG"  # Field(default="INFO")
     LOG_FORMAT: str = Field(
         default="[%(levelname)s][%(filename)s:%(lineno)d][%(funcName)s]%(message)s"
     )

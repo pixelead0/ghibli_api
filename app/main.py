@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
 
-from app.api.v1.endpoints import auth, ghibli
+from app.api.v1.endpoints import auth, ghibli, user
 from app.core.config import settings
 from app.core.initial_data import init_db as init_data
 from app.core.logging import (
@@ -73,6 +73,7 @@ async def log_requests(request: Request, call_next):
 
 # Rutas
 app.include_router(auth.router, prefix=settings.API_V1_STR)
+app.include_router(user.router, prefix=settings.API_V1_STR)
 app.include_router(ghibli.router, prefix=settings.API_V1_STR)
 
 

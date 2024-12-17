@@ -1,121 +1,87 @@
+import uuid
+
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine
-from sqlmodel.pool import StaticPool
+from sqlmodel import Session
 
-from app.db.session import get_session
-from app.main import app
+from app.core.config import settings
+from app.core.logging import get_logger
 from app.models.user import UserRole
+from tests.utils import create_user_in_db
+
+logger = get_logger(__name__)
 
 
-@pytest.fixture
-def client():
-    """
-    Create a test client using an in-memory database
-    """
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    SQLModel.metadata.create_all(engine)
+class TestAuth:
+    """Authentication related tests"""
 
-    def get_test_session():
-        with Session(engine) as session:
-            yield session
+    @pytest.fixture
+    def create_test_user(self, session: Session):
+        """Create test user for authentication tests"""
+        return create_user_in_db(
+            session=session,
+            username="admin",
+            password="admin123",
+            role=UserRole.ADMIN,
+            is_superuser=True,
+        )
 
-    app.dependency_overrides[get_session] = get_test_session
+    def test_login_success(self, client: TestClient, create_test_user):
+        """Test successful login"""
+        logger.info(f"Testing login for user: {create_test_user['user'].username}")
+        response = client.post(
+            f"{settings.API_V1_STR}/login",
+            data={
+                "username": create_test_user["user"].username,
+                "password": create_test_user["password"],
+            },
+        )
+        tokens = response.json()
+        assert response.status_code == 200
+        assert "access_token" in tokens
+        assert tokens["token_type"] == "bearer"
 
-    return TestClient(app)
+    def test_login_wrong_password(self, client: TestClient, create_test_user):
+        """Test login with wrong password"""
+        logger.info(
+            f"Testing login with wrong password for user: {create_test_user['user'].username}"
+        )
+        response = client.post(
+            f"{settings.API_V1_STR}/login",
+            data={
+                "username": create_test_user["user"].username,
+                "password": "wrong",
+            },
+        )
+        assert response.status_code == 401
+        assert "incorrect username or password" in response.json()["detail"].lower()
 
+    def test_login_wrong_username(self, client: TestClient):
+        """Test login with non-existent username"""
+        logger.info("Testing login with non-existent username")
+        response = client.post(
+            f"{settings.API_V1_STR}/login",
+            data={"username": "nonexistent", "password": "wrong"},
+        )
+        assert response.status_code == 401
+        assert "incorrect username or password" in response.json()["detail"].lower()
 
-def test_create_user(client):
-    response = client.post(
-        "/api/v1/users",
-        json={
-            "username": "testuser",
-            "password": "testpass123",
-            "role": UserRole.FILMS,
-        },
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["username"] == "testuser"
-    assert data["role"] == UserRole.FILMS
-    assert "password" not in data
-
-
-def test_create_user_invalid_role(client):
-    response = client.post(
-        "/api/v1/users",
-        json={
-            "username": "testuser",
-            "password": "testpass123",
-            "role": "invalid_role",
-        },
-    )
-    assert response.status_code == 422  # Validation error
-
-
-def test_login(client):
-    # First create a user
-    client.post(
-        "/api/v1/users",
-        json={
-            "username": "testuser",
-            "password": "testpass123",
-            "role": UserRole.FILMS,
-        },
-    )
-
-    # Then try to login
-    response = client.post(
-        "/api/v1/login", data={"username": "testuser", "password": "testpass123"}
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert "access_token" in data
-    assert data["token_type"] == "bearer"
-
-
-def test_login_wrong_password(client):
-    # First create a user
-    client.post(
-        "/api/v1/users",
-        json={
-            "username": "testuser",
-            "password": "testpass123",
-            "role": UserRole.FILMS,
-        },
-    )
-
-    # Then try to login with wrong password
-    response = client.post(
-        "/api/v1/login", data={"username": "testuser", "password": "wrongpass"}
-    )
-    assert response.status_code == 401
-    assert "incorrect username or password" in response.json()["detail"].lower()
-
-
-def test_get_users(client):
-    # First create a user and get token
-    client.post(
-        "/api/v1/users",
-        json={
-            "username": "testuser",
-            "password": "testpass123",
-            "role": UserRole.FILMS,
-        },
-    )
-
-    login_response = client.post(
-        "/api/v1/login", data={"username": "testuser", "password": "testpass123"}
-    )
-    token = login_response.json()["access_token"]
-
-    # Then try to get users list
-    response = client.get("/api/v1/users", headers={"Authorization": f"Bearer {token}"})
-    assert response.status_code == 200
-    data = response.json()
-    assert isinstance(data, list)
-    assert len(data) > 0
+    def test_login_inactive_user(self, client: TestClient, session: Session):
+        """Test login with inactive user"""
+        user_data = create_user_in_db(
+            session=session,
+            username="inactive",
+            password="password123",
+            role=UserRole.FILMS,
+            is_active=False,
+        )
+        logger.info(f"Testing login for inactive user: {user_data['user'].username}")
+        response = client.post(
+            f"{settings.API_V1_STR}/login",
+            data={
+                "username": user_data["user"].username,
+                "password": user_data["password"],
+            },
+        )
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Inactive user"
