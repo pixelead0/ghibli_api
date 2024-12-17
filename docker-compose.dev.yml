@@ -5,38 +5,29 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
-    security_opt:
-      - no-new-privileges:true
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    restart: always
+    networks:
+      - backend
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
-    ports:
-      - "5432:5432"
-    networks:
-      - backend
 
   ghibli_api:
     build:
       context: ./
-      dockerfile: containers/api/Dockerfile.dev
+      dockerfile: containers/api/Dockerfile
     ports:
       - "8881:8881"
     volumes:
       - ./:/app
-      - /app/.venv
     environment:
       - ENVIRONMENT=development
       - CREATE_INITIAL_DATA=true
-      - PYTHONDONTWRITEBYTECODE=1
-      - PYTHONUNBUFFERED=1
-    security_opt:
-      - no-new-privileges:true
-    restart: on-failure
     depends_on:
       ghibli_db:
         condition: service_healthy

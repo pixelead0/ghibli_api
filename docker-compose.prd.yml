@@ -21,7 +21,7 @@ services:
   ghibli_api:
     build:
       context: ./
-      dockerfile: containers/api/Dockerfile.prd
+      dockerfile: containers/api/Dockerfile.prod
     deploy:
       mode: replicated
       replicas: 3
@@ -34,6 +34,8 @@ services:
       ghibli_db:
         condition: service_healthy
     environment:
+      - ENVIRONMENT=production
+      - CREATE_INITIAL_DATA=false
       - WORKERS_PER_CORE=1
       - MAX_WORKERS=2
       - WEB_CONCURRENCY=2

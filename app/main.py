@@ -23,16 +23,19 @@ async def lifespan(app: FastAPI):
     """
     Contexto de vida de la aplicación
     """
-    logger.info("Initializing application...")
+    logger.info(f"Initializing application in {settings.ENVIRONMENT} environment...")
     setup_logging()
 
+    # Inicializar la base de datos
     init_db()
 
-    # Create initial data
+    # Crear datos iniciales solo en desarrollo
     if settings.ENVIRONMENT == "development" and settings.CREATE_INITIAL_DATA:
         logger.info("Creating initial data...")
         with Session(engine) as session:
             init_data(session)
+    else:
+        logger.info("Skipping initial data creation in production environment")
 
     logger.info("Application started successfully")
     yield
@@ -78,4 +81,4 @@ async def health_check():
     Endpoint de health check
     """
     logger.info("Health check requested")
-    return {"status": "healthy"}
+    return {"status": "healthy", "environment": settings.ENVIRONMENT}
