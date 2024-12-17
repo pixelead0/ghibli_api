@@ -20,15 +20,20 @@ services:
     networks:
       - backend
 
-
   ghibli_api:
     build:
       context: ./
-      dockerfile: containers/api/Dockerfile
+      dockerfile: containers/api/Dockerfile.dev
     ports:
       - "8881:8881"
     volumes:
       - ./:/app
+      - /app/.venv
+    environment:
+      - ENVIRONMENT=development
+      - CREATE_INITIAL_DATA=true
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
     security_opt:
       - no-new-privileges:true
     restart: on-failure
@@ -51,6 +56,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
   pgadmin:
     depends_on:
       - ghibli_db
@@ -63,6 +69,7 @@ services:
       - 8484:80
     networks:
       - backend
+
 volumes:
   postgres_data:
   redis_data:

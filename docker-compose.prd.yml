@@ -1,0 +1,96 @@
+services:
+  ghibli_db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+
+  ghibli_api:
+    build:
+      context: ./
+      dockerfile: containers/api/Dockerfile.prd
+    deploy:
+      mode: replicated
+      replicas: 3
+    expose:
+      - "8881"
+    security_opt:
+      - no-new-privileges:true
+    restart: always
+    depends_on:
+      ghibli_db:
+        condition: service_healthy
+    environment:
+      - WORKERS_PER_CORE=1
+      - MAX_WORKERS=2
+      - WEB_CONCURRENCY=2
+    networks:
+      - backend
+
+  ghibli_redis:
+    image: redis:alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: '0.30'
+          memory: 256M
+        reservations:
+          cpus: '0.10'
+          memory: 128M
+    security_opt:
+      - no-new-privileges:true
+    restart: always
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  nginx:
+    build:
+      context: ./containers/nginx
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - ghibli_api
+    deploy:
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 128M
+        reservations:
+          cpus: '0.10'
+          memory: 64M
+    security_opt:
+      - no-new-privileges:true
+    restart: always
+    networks:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  backend:
+    driver: bridge
+    name: ghibli_network
