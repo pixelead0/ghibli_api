@@ -10,7 +10,7 @@ logger = get_logger(__name__)
 
 
 @router.get("/")
-def get_ghibli_data(current_user: User = Depends(deps.get_current_user)):
+async def get_ghibli_data(current_user: User = Depends(deps.get_current_active_user)):
     """
     Obtiene datos de Studio Ghibli API según el rol del usuario
     """
@@ -23,4 +23,7 @@ def get_ghibli_data(current_user: User = Depends(deps.get_current_user)):
         return data
     except Exception as e:
         logger.error(f"Error fetching Ghibli data: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error fetching Ghibli data")
+        raise HTTPException(
+            status_code=500, 
+            detail="Error fetching Ghibli data"
+        )

@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str = Field(default="ghibli_db")
     POSTGRES_PORT: str = Field(default="5432")
 
+    # Redis conf
+    REDIS_HOST: str = Field(default="ghibli_redis")
+    REDIS_PORT: int = Field(default=6379)
+    REDIS_TTL: int = Field(default=3600)  # 1 hora por defecto
+
     @property
     def DATABASE_URL(self) -> str:
         """Construye la URL de la base de datos usando las variables individuales"""
