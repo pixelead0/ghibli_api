@@ -1,6 +1,17 @@
 # Ghibli API
 
-This project is a FastAPI-based API that interacts with the Studio Ghibli API and provides user management and authentication functionality. The backend uses Postgres as its database and Docker for containerization.
+This project is a FastAPI-based API that interacts with the Studio Ghibli API and provides user management and authentication functionality. The backend uses Postgres as its database, Redis for caching, and Docker for containerization.
+
+## Features
+
+- Role-based access control (RBAC)
+- JWT Authentication
+- Redis caching for API responses
+- Full user management (CRUD operations)
+- Integration with Studio Ghibli API
+- Automated testing with pytest
+- Docker containerization
+- Database migrations with Alembic
 
 ## Requirements
 
@@ -15,8 +26,6 @@ Before you start, make sure you have the following installed:
 
 ### Development Environment
 
-To set up the project in a development environment, follow these steps:
-
 1. **Clone the repository**
 
     ```bash
@@ -24,154 +33,152 @@ To set up the project in a development environment, follow these steps:
     cd ghibli-api
     ```
 
-2. **Build the Docker containers**
+2. **Environment Configuration**
 
-    Use the `Makefile` to build the application:
-
+    Copy the example environment file and adjust as needed:
     ```bash
+    cp .env.example .env
+    ```
+
+3. **Build and Start**
+
+    Use the provided Makefile commands:
+    ```bash
+    # Build containers
     make build
-    ```
 
-3. **Start the containers**
-
-    Start the application containers using Docker Compose:
-
-    ```bash
+    # Start services
     make up
-    ```
 
-4. **Install dependencies**
-
-    Install Python dependencies within the container:
-
-    ```bash
+    # Install dependencies
     make requirements
-    ```
 
-5. **Run the database migrations**
-
-    Apply the migrations to the database:
-
-    ```bash
+    # Run migrations
     make upgrade
     ```
 
-6. **Create initial data (optional)**
+4. **Initial Data (Optional)**
 
-    For development purposes, you can create initial data by setting the `CREATE_INITIAL_DATA` flag to `true` in the `.env` file and running the app:
-
-    ```bash
-    make up
+    For development, you can create initial data by setting in `.env`:
+    ```
+    CREATE_INITIAL_DATA=true
     ```
 
-7. **Start the development server**
+### Testing Environment
 
-    You can now access the API at `http://localhost:8881` and use the following endpoint for health check:
-
-    ```bash
-    curl http://localhost:8881/health
-    ```
-
-### Production Environment
-
-To set up the project for production, follow these steps:
-
-1. **Set the environment to production**
-
-    Update the `.env` file and set the `ENVIRONMENT` variable to `production`:
-
-    ```bash
-    ENVIRONMENT=production
-    ```
-
-2. **Configure your database credentials**
-
-    Update the `.env` file with your production database credentials:
-
-    ```bash
-    POSTGRES_USER=your_prod_user
-    POSTGRES_PASSWORD=your_prod_password
-    POSTGRES_DB=your_prod_db
-    ```
-
-3. **Build the Docker containers for production**
-
-    Build the application containers in production mode:
-
-    ```bash
-    make build
-    ```
-
-4. **Start the containers**
-
-    Run the application in production mode:
-
-    ```bash
-    make up
-    ```
-
-### Running Tests
-
-To run the tests, use the following command:
-
+Run all tests:
 ```bash
 make test
 ```
 
-You can also run tests for a specific path:
-
+Run specific tests:
 ```bash
-make test path=your_test_path
+make test path=tests/api/test_auth.py
 ```
 
-### Stopping the Application
+### Production Environment
 
-To stop the application, run:
+1. **Configure Production Settings**
 
+    Update `.env`:
+    ```bash
+    ENVIRONMENT=production
+    
+    # Database settings
+    POSTGRES_USER=your_prod_user
+    POSTGRES_PASSWORD=your_prod_password
+    POSTGRES_DB=your_prod_db
+    
+    # Redis settings
+    REDIS_HOST=your_redis_host
+    REDIS_PORT=6379
+    REDIS_TTL=3600  # Cache duration in seconds
+    ```
+
+2. **Deploy**
+    ```bash
+    make build
+    make up
+    ```
+
+## API Documentation
+
+When running, the API documentation is available at:
+- Swagger UI: `http://localhost:8881/docs`
+- ReDoc: `http://localhost:8881/redoc`
+
+
+## Development Tools
+
+### PgAdmin
+Access the database management interface at `http://localhost:8484`:
+- Default email: admin@correo.com
+- Default password: toor
+
+### Pre-commit Hooks
+The project uses pre-commit hooks for code quality. Install with:
 ```bash
-make down
+pip install pre-commit
+pre-commit install
 ```
 
-### Cleaning the Environment
-
-To stop the application and remove all containers and volumes:
-
-```bash
-make clean
-```
-
-## Logging
-
-Logs are handled by the logging configuration in `app/core/logging.py`. The logs are printed to the console and can be configured for file output.
-
-### Log Levels
-
-- **DEBUG**: Detailed information, typically useful only when diagnosing problems.
-- **INFO**: Confirmations that things are working as expected.
-- **WARNING**: Indications that something unexpected happened, but the application is still working as expected.
-- **ERROR**: The application is not working as expected.
-- **CRITICAL**: A very serious error, potentially causing the application to crash.
-
-## File Structure
+## Project Structure
 
 ```
 .
-├── app/                          # Backend application code
-├── containers/                   # Docker configurations
-│   ├── api/                      # API container configurations
-│   ├── pgadmin/                  # pgAdmin container configurations
-├── tests/                        # Unit tests
-├── .env                          # Environment variables for development
-├── .env.example                  # Example environment configuration
-├── docker-compose.yml            # Docker Compose configuration
-├── Makefile                      # Task automation for Docker and other processes
-└── requirements.txt              # Python dependencies
+├── app/
+│   ├── api/            # API endpoints and routes
+│   │   └── v1/         # API version 1 implementations
+│   ├── core/           # Core functionality (config, security, etc.)
+│   ├── crud/           # Database CRUD operations
+│   ├── models/         # SQLModel/Pydantic models
+│   └── services/       # Business logic and external services
+├── containers/         # Docker configurations
+│   ├── api/           # API container setup
+│   └── pgadmin/       # PgAdmin container setup
+├── tests/             # Test suites
+│   ├── api/           # API endpoint tests
+│   └── services/      # Service layer tests
+├── .env               # Environment variables
+├── docker-compose.yml # Docker services configuration
+└── Makefile          # Development and deployment commands
+```
+
+## Makefile Commands
+
+- `make build`: Build all containers
+- `make up`: Start all services
+- `make down`: Stop all services
+- `make clean`: Remove all containers and volumes
+- `make logs`: View all container logs
+- `make logs_api`: View API container logs
+- `make test`: Run test suite
+- `make upgrade`: Run database migrations
+- `make downgrade`: Rollback database migrations
+- `make revision msg="message"`: Create new migration
+- `make requirements`: Install Python dependencies
+- `make lint`: Run pre-commit hooks
+
+## Cache Configuration
+
+The Redis cache is configured with the following default settings in `.env`:
+```
+REDIS_HOST=ghibli_redis
+REDIS_PORT=6379
+REDIS_TTL=3600  # 1 hour cache duration
 ```
 
 ## Contributing
 
-Feel free to fork the repository, create branches, and submit pull requests. Please ensure that any changes are well tested.
-
----
+1. Fork the repository
+2. Create your feature branch
+3. Run tests and ensure they pass
+4. Commit your changes
+5. Push to your branch
+6. Create a Pull Request
 
 For more information, refer to the project's official documentation or contact the maintainers.
+
+## License
+
+This project is licensed under the GNU General Public License v3.0
