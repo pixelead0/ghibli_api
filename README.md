@@ -28,6 +28,8 @@ Before starting, ensure you have the following installed:
 
 ## Installation and Configuration
 
+![GIF mostrando la funcionalidad](assets/demo_users.gif)
+
 ### Development Environment
 
 1. **Clone the repository**
